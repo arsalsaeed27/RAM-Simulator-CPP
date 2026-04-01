@@ -82,6 +82,61 @@ public:
             addChunk(initialSizes[i]);
         }
     }
+    bool allocateFirstFit(int processID, int requestedSize)
+    {
+        MemChunk *current = head;
+
+        while (current != nullptr)
+        {
+            if (current->state == AllocState::FREE && current->sizeKB >= requestedSize)
+            {
+                int remainder = current->sizeKB - requestedSize;
+
+                if (remainder > 20) // we will split if diff > 20
+                {
+                    MemChunk *splitChunk = new MemChunk( // creating a new remainder chunk
+                        idCounter++,
+                        current->startAddr + requestedSize,
+                        remainder,
+                        AllocState::FREE);
+
+                    splitChunk->next = current->next; // connecting  it into theDLL
+                    splitChunk->prev = current;
+
+                    if (current->next != nullptr)
+                    {
+                        current->next->prev = splitChunk;
+                    }
+                    else
+                    {
+                        tail = splitChunk; // updating tail if we split the very last block
+                    }
+                    current->next = splitChunk;
+
+                    // shrinking the current block to the requested size
+                    current->sizeKB = requestedSize;
+
+                    cout << "[FIRST-FIT] Process P" << processID << " allocated " << requestedSize
+                         << " KB. Chunk " << current->chunkID << " split! Remainder: " << remainder << " KB." << endl;
+                }
+                else
+                {
+                    cout << "[FIRST-FIT] Process P" << processID << " allocated " << requestedSize
+                         << " KB in Chunk " << current->chunkID << ". (No split, internal frag: " << remainder << " KB)." << endl;
+                }
+
+                // marking the chunk as occupied
+                current->state = AllocState::OCCUPIED;
+                current->ownerProcessID = processID;
+                return true; // meaning that it was a success
+            }
+            current = current->next;
+        }
+
+        cout << "[ERROR] Allocation FAILED for Process P" << processID << " (" << requestedSize << " KB). No contiguous block large enough." << endl;
+        return false; // meaning that it was a ffailure
+    }
+
     void renderGUI(const string &filename, const string &stepDescription)
     {
         ofstream htmlFile(filename);
@@ -104,7 +159,6 @@ public:
         MemChunk *current = head;
         while (current != nullptr)
         {
-            // Calculate visual width based on size (min 60px, max 300px)
             int visualWidth = std::max(60, std::min(current->sizeKB * 2, 300));
             string statusClass = (current->state == AllocState::FREE) ? "free" : "occupied";
             string statusText = (current->state == AllocState::FREE) ? "FREE" : "P" + to_string(current->ownerProcessID);
@@ -129,11 +183,29 @@ int main()
 {
     RAMSimulator sim;
 
-    // Step 1: Initialize the memory pool
+    // Step 1: Initialize
+    cout << "--- INITIALIZING MEMORY POOL ---" << endl;
     sim.initializePool();
+    sim.renderGUI("gui_01_initial.html", "Initial Memory Layout (10 Blocks, 1024 KB)");
+    cout << endl;
 
-    // Step 2: Generate the GUI file
-    sim.renderGUI("gui_output.html", "Initial Memory Layout (10 Blocks, 1024 KB Total)");
+    // Step 2: Test First-Fit Allocations
+    cout << "--- TESTING FIRST-FIT ALLOCATION ---" << endl;
 
-    return 0;
+    // Process 1 needs 40KB. Should take the first 100KB block and split it (40KB used, 60KB new free block)
+    sim.allocateFirstFit(1, 40);
+
+    // Process 2 needs 15KB. Should take the new 60KB block and split it (15KB used, 45KB new free block)
+    sim.allocateFirstFit(2, 15);
+
+    // Process 3 needs 40KB. Should fit inside the 45KB block without splitting (difference is 5KB, which is <= 20)
+    sim.allocateFirstFit(3, 40);
+
+    // Process 4 needs 110KB. Will skip the 50KB block and split the 120KB block.
+    sim.allocateFirstFit(4, 110);
+
+    cout << endl;
+
+    // Step 3: Render the after-state
+    sim.renderGUI("gui_02_after_alloc.html", "Memory After 4 First-Fit Allocations (Showing Block Splits)");
 }
