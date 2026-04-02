@@ -136,6 +136,64 @@ public:
         cout << "[ERROR] Allocation FAILED for Process P" << processID << " (" << requestedSize << " KB). No contiguous block large enough." << endl;
         return false; // meaning that it was a ffailure
     }
+    void deallocate(int processID)
+    {
+        MemChunk *current = head;
+        bool found = false;
+
+        while (current != NULL)
+        {
+            MemChunk *nextNode = current->next;
+            if (current->state == AllocState::OCCUPIED && current->ownerProcessID == processID)
+            {
+                cout << " DEALLOCATED Process P" << processID << " released Chunk" << current->chunkID << " (" << current->sizeKB << " KB)." << endl;
+
+                current->state = AllocState::FREE;
+                current->ownerProcessID = -1;
+                found = true;
+                coalesce(current);
+            }
+            current = nextNode;
+        }
+        if (!found)
+        {
+            cout << "ERROR in DEALLOCATION. Process P" << processID << " not found in memory" << endl;
+        }
+    }
+
+    void coalesce(MemChunk *current) // this func will merge free nearby blocks
+    {
+        if (current->next != NULL && current->next->state == AllocState ::FREE)
+        {
+            MemChunk *rightChunk = current->next;
+            cout << "  -> MERGE Coalescing Chunk" << current->chunkID << " with adjacent right chunk " << rightChunk->chunkID << endl;
+
+            current->sizeKB += rightChunk->sizeKB;
+            current->next = rightChunk->next;
+
+            if (rightChunk->next != NULL)
+                rightChunk->next->prev = current;
+            else
+                tail = current;
+
+            delete rightChunk;
+        }
+        if (current->prev != NULL && current->prev->state == AllocState ::FREE)
+        {
+            MemChunk *leftChunk = current->prev;
+            cout << "  -> MERGE Coalescing Left Chunk" << leftChunk->chunkID << " with chunk " << current->chunkID << endl;
+
+            leftChunk->sizeKB += current->sizeKB;
+            leftChunk->next = current->next;
+
+            if (current->next != NULL)
+                current->next->prev = leftChunk;
+            else
+                tail = leftChunk;
+
+            delete current;
+        }
+    }
 
     void renderGUI(const string &filename, const string &stepDescription)
     {
@@ -183,29 +241,30 @@ int main()
 {
     RAMSimulator sim;
 
-    // Step 1: Initialize
-    cout << "--- INITIALIZING MEMORY POOL ---" << endl;
+    cout << "--- STEP 1: INITIALIZE ---" << endl;
     sim.initializePool();
-    sim.renderGUI("gui_01_initial.html", "Initial Memory Layout (10 Blocks, 1024 KB)");
+    sim.renderGUI("gui_01_initial.html", "Initial Memory Layout");
     cout << endl;
 
-    // Step 2: Test First-Fit Allocations
-    cout << "--- TESTING FIRST-FIT ALLOCATION ---" << endl;
-
-    // Process 1 needs 40KB. Should take the first 100KB block and split it (40KB used, 60KB new free block)
+    cout << "--- STEP 2: ALLOCATIONS (SPLITTING) ---" << endl;
     sim.allocateFirstFit(1, 40);
-
-    // Process 2 needs 15KB. Should take the new 60KB block and split it (15KB used, 45KB new free block)
     sim.allocateFirstFit(2, 15);
-
-    // Process 3 needs 40KB. Should fit inside the 45KB block without splitting (difference is 5KB, which is <= 20)
     sim.allocateFirstFit(3, 40);
-
-    // Process 4 needs 110KB. Will skip the 50KB block and split the 120KB block.
-    sim.allocateFirstFit(4, 110);
-
+    sim.renderGUI("gui_02_allocated.html", "Memory After Allocations");
     cout << endl;
 
-    // Step 3: Render the after-state
-    sim.renderGUI("gui_02_after_alloc.html", "Memory After 4 First-Fit Allocations (Showing Block Splits)");
+    cout << "--- STEP 3: DEALLOCATIONS (MERGING) ---" << endl;
+    // Free P2 first. It is between P1 and P3, so it will NOT merge yet (neighbors are occupied).
+    sim.deallocate(2);
+
+    // Now free P1. It is on the left of P2's newly freed block. It SHOULD trigger a right-merge!
+    sim.deallocate(1);
+
+    // Now free P3. It is on the right of the giant P1+P2 free block. It SHOULD trigger a left-merge!
+    sim.deallocate(3);
+    cout << endl;
+
+    sim.renderGUI("gui_03_coalesced.html", "Memory After Deallocations & Coalescing");
+
+    return 0;
 }

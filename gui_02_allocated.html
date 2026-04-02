@@ -9,12 +9,22 @@ h2 { color: #89b4fa; border-bottom: 2px solid #313244; padding-bottom: 10px; }
 .occupied { background-color: #f38ba8; color: #11111b; }
 .details { font-size: 11px; font-weight: normal; margin-top: 5px; opacity: 0.8; }
 </style></head><body>
-<h2>State: Initial Memory Layout</h2>
+<h2>State: Memory After Allocations</h2>
 <div class='memory-board'>
-<div class='chunk free' style='width: 200px;'>
-<div>100 KB</div>
-<div class='details'>FREE | Addr: 0</div>
+<div class='chunk occupied' style='width: 80px;'>
+<div>40 KB</div>
+<div class='details'>P1 | Addr: 0</div>
 <div class='details'>ID: [BLK 0]</div>
+</div>
+<div class='chunk occupied' style='width: 60px;'>
+<div>15 KB</div>
+<div class='details'>P2 | Addr: 40</div>
+<div class='details'>ID: [BLK 10]</div>
+</div>
+<div class='chunk occupied' style='width: 90px;'>
+<div>45 KB</div>
+<div class='details'>P3 | Addr: 55</div>
+<div class='details'>ID: [BLK 11]</div>
 </div>
 <div class='chunk free' style='width: 100px;'>
 <div>50 KB</div>

@@ -13,4 +13,11 @@
 * Implemented the **Block Splitting Requirement**: If the selected free chunk is significantly larger than the request (difference > 20 KB), the chunk is split. A new `MemChunk` node is dynamically created for the remainder, its new starting address is calculated, and it is cleanly spliced into the doubly linked list.
 * Updated `main()` to simulate several allocation requests, including one that triggers a split and one that fits exactly, generating a new GUI state to visualize the fragmentation.
 
-**Next Steps:** Implement Deallocation and the Block Coalescing (Merging) logic to fuse adjacent free blocks.
+## Commit 3: Deallocation & Block Coalescing (Merging)
+**Changes in this commit:**
+* Implemented `deallocate(int processID)` to search the memory pool and release all chunks owned by a specific process.
+* Implemented `coalesce(MemChunk* chunk)`, satisfying the rubric's merging requirement. When a chunk is freed, this function performs an $O(1)$ check of the `prev` and `next` pointers. If adjacent chunks are also free, they are spliced together, their sizes combined, and the redundant `MemChunk` nodes are cleanly deleted from memory.
+* Added console alerts to print a specific message whenever a merge occurs, exactly as the assignment requires.
+* Updated `main()` to simulate deallocations that trigger right-side merges, left-side merges, and double-sided merges to prove the robustness of the algorithm.
+
+**Next Steps:** Implement the Next-Fit, Best-Fit, and Worst-Fit search algorithms, and build the final Stress Test loop.
