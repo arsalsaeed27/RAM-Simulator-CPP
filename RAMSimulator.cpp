@@ -2,6 +2,9 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cstdlib>
+#include <ctime>
 
 using namespace std;
 
@@ -28,7 +31,38 @@ class RAMSimulator
 private:
     MemChunk *head;
     MemChunk *tail;
+    MemChunk *lastAllocNode;
     int idCounter;
+
+    void executeAllocation(MemChunk *current, int processID, int requestedSize, const string &algoName)
+    {
+        int remainder = current->sizeKB - requestedSize;
+        if (remainder > 20)
+        {
+            MemChunk *splitChunk = new MemChunk(idCounter++, current->startAddr + requestedSize, remainder, AllocState::FREE);
+            splitChunk->next = current->next;
+            splitChunk->prev = current;
+
+            if (current->next != NULL)
+                current->next->prev = splitChunk;
+            else
+                tail = splitChunk;
+
+            current->next = splitChunk;
+            current->sizeKB = requestedSize;
+
+            cout << "[" << algoName << "] Process P" << processID << " allocated " << requestedSize
+                 << " KB. Chunk " << current->chunkID << " split! Remainder: " << remainder << " KB." << endl;
+        }
+        else
+        {
+            cout << "[" << algoName << "] Process P" << processID << " allocated " << requestedSize
+                 << " KB in Chunk " << current->chunkID << ". (No split)." << endl;
+        }
+        current->state = AllocState::OCCUPIED;
+        current->ownerProcessID = processID;
+        lastAllocNode = current;
+    }
 
 public:
     RAMSimulator() : head(NULL), tail(NULL), idCounter(0) {}
@@ -48,6 +82,7 @@ public:
         }
         head = NULL;
         tail = NULL;
+        lastAllocNode = NULL;
     }
 
     void addChunk(int size) // its like a  "add node" function for a DDLL
@@ -81,6 +116,7 @@ public:
         {
             addChunk(initialSizes[i]);
         }
+        lastAllocNode = head;
     }
     bool allocateFirstFit(int processID, int requestedSize)
     {
@@ -90,51 +126,97 @@ public:
         {
             if (current->state == AllocState::FREE && current->sizeKB >= requestedSize)
             {
-                int remainder = current->sizeKB - requestedSize;
-
-                if (remainder > 20) // we will split if diff > 20
-                {
-                    MemChunk *splitChunk = new MemChunk( // creating a new remainder chunk
-                        idCounter++,
-                        current->startAddr + requestedSize,
-                        remainder,
-                        AllocState::FREE);
-
-                    splitChunk->next = current->next; // connecting  it into theDLL
-                    splitChunk->prev = current;
-
-                    if (current->next != nullptr)
-                    {
-                        current->next->prev = splitChunk;
-                    }
-                    else
-                    {
-                        tail = splitChunk; // updating tail if we split the very last block
-                    }
-                    current->next = splitChunk;
-
-                    // shrinking the current block to the requested size
-                    current->sizeKB = requestedSize;
-
-                    cout << "[FIRST-FIT] Process P" << processID << " allocated " << requestedSize
-                         << " KB. Chunk " << current->chunkID << " split! Remainder: " << remainder << " KB." << endl;
-                }
-                else
-                {
-                    cout << "[FIRST-FIT] Process P" << processID << " allocated " << requestedSize
-                         << " KB in Chunk " << current->chunkID << ". (No split, internal frag: " << remainder << " KB)." << endl;
-                }
-
-                // marking the chunk as occupied
-                current->state = AllocState::OCCUPIED;
-                current->ownerProcessID = processID;
-                return true; // meaning that it was a success
+                executeAllocation(current, processID, requestedSize, "First-Fit");
+                return true; // means it was a success
             }
             current = current->next;
         }
-
         cout << "[ERROR] Allocation FAILED for Process P" << processID << " (" << requestedSize << " KB). No contiguous block large enough." << endl;
         return false; // meaning that it was a ffailure
+    }
+
+    bool allocateNextFit(int processID, int requestedSize)
+    {
+        if (lastAllocNode == NULL)
+            lastAllocNode = head;
+        MemChunk *current = lastAllocNode;
+        while (current != NULL)
+        {
+            if (current->state == AllocState::FREE && current->sizeKB >= requestedSize)
+            {
+                executeAllocation(current, processID, requestedSize, "Next-fit");
+                return true;
+            }
+            current = current->next;
+        }
+        current = head;
+        while (current != lastAllocNode && current != NULL)
+        {
+            if (current->state == AllocState::FREE && current->sizeKB >= requestedSize)
+            {
+                executeAllocation(current, processID, requestedSize, "Next-Fit");
+                return true;
+            }
+            current = current->next;
+        }
+        cout << "ERROR NEXT FIT FAIELD FOR P" << processID << " (" << requestedSize << " KB)" << endl;
+        return false;
+    }
+
+    bool allocateBestFit(int processID, int requestedSize)
+    {
+        MemChunk *current = head;
+        MemChunk *bestFit = NULL;
+        int minDifference = 9999999; // just a random number
+
+        while (current != NULL)
+        {
+            if (current->state == AllocState::FREE && current->sizeKB >= requestedSize)
+            {
+                int diff = current->sizeKB - requestedSize;
+                if (diff < minDifference)
+                {
+                    minDifference = diff;
+                    bestFit = current;
+                }
+            }
+            current = current->next;
+        }
+        if (bestFit != NULL)
+        {
+            executeAllocation(bestFit, processID, requestedSize, "Best-Fit");
+            return true;
+        }
+        cout << "ERROR BEST FIT FAILED FOR P" << processID << " (" << requestedSize << " KB)" << endl;
+        return false;
+    }
+
+    bool allocateWorstFit(int processID, int requestedSize)
+    {
+        MemChunk *current = head;
+        MemChunk *worstFit = NULL;
+        int maxDifference = -1;
+
+        while (current != NULL)
+        {
+            if (current->state == AllocState::FREE && current->sizeKB >= requestedSize)
+            {
+                int diff = current->sizeKB - requestedSize;
+                if (diff > maxDifference)
+                {
+                    maxDifference = diff;
+                    worstFit = current;
+                }
+            }
+            current = current->next;
+        }
+        if (worstFit != NULL)
+        {
+            executeAllocation(worstFit, processID, requestedSize, "Worst-Fit");
+            return true;
+        }
+        cout << "ERROR WORST FIT FAILED FOR P" << processID << " (" << requestedSize << "KB" << endl;
+        return false;
     }
     void deallocate(int processID)
     {
@@ -143,7 +225,6 @@ public:
 
         while (current != NULL)
         {
-            MemChunk *nextNode = current->next;
             if (current->state == AllocState::OCCUPIED && current->ownerProcessID == processID)
             {
                 cout << " DEALLOCATED Process P" << processID << " released Chunk" << current->chunkID << " (" << current->sizeKB << " KB)." << endl;
@@ -151,9 +232,9 @@ public:
                 current->state = AllocState::FREE;
                 current->ownerProcessID = -1;
                 found = true;
-                coalesce(current);
+                current = coalesce(current);
             }
-            current = nextNode;
+            current = current->next;
         }
         if (!found)
         {
@@ -161,12 +242,17 @@ public:
         }
     }
 
-    void coalesce(MemChunk *current) // this func will merge free nearby blocks
+    MemChunk *coalesce(MemChunk *current) // this func will merge free nearby blocks
     {
+        MemChunk *survivingNode = current;
+        // for merging right side
         if (current->next != NULL && current->next->state == AllocState ::FREE)
         {
             MemChunk *rightChunk = current->next;
             cout << "  -> MERGE Coalescing Chunk" << current->chunkID << " with adjacent right chunk " << rightChunk->chunkID << endl;
+
+            if (lastAllocNode == rightChunk)
+                lastAllocNode = current;
 
             current->sizeKB += rightChunk->sizeKB;
             current->next = rightChunk->next;
@@ -178,10 +264,13 @@ public:
 
             delete rightChunk;
         }
+        // for merging left side
         if (current->prev != NULL && current->prev->state == AllocState ::FREE)
         {
             MemChunk *leftChunk = current->prev;
             cout << "  -> MERGE Coalescing Left Chunk" << leftChunk->chunkID << " with chunk " << current->chunkID << endl;
+            if (lastAllocNode == current)
+                lastAllocNode = leftChunk;
 
             leftChunk->sizeKB += current->sizeKB;
             leftChunk->next = current->next;
@@ -192,7 +281,33 @@ public:
                 tail = leftChunk;
 
             delete current;
+            survivingNode = leftChunk;
         }
+        return survivingNode;
+    }
+
+    void printReport(const string &algoName)
+    {
+        int totalFree = 0, freeBlocksCount = 0, largestFree = 0;
+        MemChunk *current = head;
+        while (current != NULL)
+        {
+            if (current->state == AllocState::FREE)
+            {
+                totalFree += current->sizeKB;
+                freeBlocksCount++;
+                if (current->sizeKB > largestFree)
+                    largestFree = current->sizeKB;
+            }
+            current = current->next;
+        }
+        cout << "\n=== " << algoName << " FRAGMENTATION REPORT ===" << endl;
+        cout << "Total Free Memory  : " << totalFree << " KB" << endl;
+        cout << "Free Blocks Count  : " << freeBlocksCount << endl;
+        cout << "Largest Free Block : " << largestFree << " KB" << endl;
+        cout << "External Frag.     : " << (freeBlocksCount > 1 ? "YES (Free space is divided)" : "NO (Free space is contiguous)") << endl;
+        cout << "=======================================\n"
+             << endl;
     }
 
     void renderGUI(const string &filename, const string &stepDescription)
@@ -236,35 +351,42 @@ public:
         cout << ">>> GUI updated! Open '" << filename << "' in your web browser to see the visual layout." << endl;
     }
 };
-
 int main()
 {
+
+    srand(static_cast<unsigned>(time(0)));
     RAMSimulator sim;
 
-    cout << "--- STEP 1: INITIALIZE ---" << endl;
-    sim.initializePool();
-    sim.renderGUI("gui_01_initial.html", "Initial Memory Layout");
-    cout << endl;
+    cout << "===== DYNAMIC MEMORY ALLOCATION STRESS TEST =====" << endl;
 
-    cout << "--- STEP 2: ALLOCATIONS (SPLITTING) ---" << endl;
-    sim.allocateFirstFit(1, 40);
-    sim.allocateFirstFit(2, 15);
-    sim.allocateFirstFit(3, 40);
-    sim.renderGUI("gui_02_allocated.html", "Memory After Allocations");
-    cout << endl;
+    string algorithms[] = {"First-Fit", "Next-Fit", "Best-Fit", "Worst-Fit"};
 
-    cout << "--- STEP 3: DEALLOCATIONS (MERGING) ---" << endl;
-    // Free P2 first. It is between P1 and P3, so it will NOT merge yet (neighbors are occupied).
-    sim.deallocate(2);
+    for (int algoIndex = 0; algoIndex < 4; algoIndex++)
+    {
 
-    // Now free P1. It is on the left of P2's newly freed block. It SHOULD trigger a right-merge!
-    sim.deallocate(1);
+        cout << "\n\n>>> EXECUTING: " << algorithms[algoIndex] << " <<<" << endl;
+        sim.initializePool();
 
-    // Now free P3. It is on the right of the giant P1+P2 free block. It SHOULD trigger a left-merge!
-    sim.deallocate(3);
-    cout << endl;
+        // stress Test :10 random allocations
+        for (int i = 1; i <= 10; i++)
+        {
+            int randomSize = 10 + (rand() % 141); // to get a random size between 10 and 150 KB
 
-    sim.renderGUI("gui_03_coalesced.html", "Memory After Deallocations & Coalescing");
+            if (algoIndex == 0)
+                sim.allocateFirstFit(i, randomSize);
+            else if (algoIndex == 1)
+                sim.allocateNextFit(i, randomSize);
+            else if (algoIndex == 2)
+                sim.allocateBestFit(i, randomSize);
+            else if (algoIndex == 3)
+                sim.allocateWorstFit(i, randomSize);
+        }
+
+        sim.printReport(algorithms[algoIndex]);
+
+        string filename = "gui_stress_test_" + algorithms[algoIndex] + ".html";
+        sim.renderGUI(filename, "Aftermath of Stress Test using " + algorithms[algoIndex]);
+    }
 
     return 0;
 }

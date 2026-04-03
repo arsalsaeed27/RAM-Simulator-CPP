@@ -1,0 +1,74 @@
+<!DOCTYPE html><html><head><title>RAM Simulator GUI</title>
+<style>
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; padding: 20px; }
+h2 { color: #89b4fa; border-bottom: 2px solid #313244; padding-bottom: 10px; }
+.memory-board { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; padding: 15px; background: #181825; border-radius: 8px; }
+.chunk { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 6px; padding: 10px; font-size: 14px; font-weight: bold; border: 2px solid #11111b; transition: transform 0.2s; }
+.chunk:hover { transform: scale(1.05); }
+.free { background-color: #a6e3a1; color: #11111b; }
+.occupied { background-color: #f38ba8; color: #11111b; }
+.details { font-size: 11px; font-weight: normal; margin-top: 5px; opacity: 0.8; }
+</style></head><body>
+<h2>State: Aftermath of Stress Test using Best-Fit</h2>
+<div class='memory-board'>
+<div class='chunk occupied' style='width: 200px;'>
+<div>100 KB</div>
+<div class='details'>P1 | Addr: 0</div>
+<div class='details'>ID: [BLK 0]</div>
+</div>
+<div class='chunk occupied' style='width: 100px;'>
+<div>50 KB</div>
+<div class='details'>P8 | Addr: 100</div>
+<div class='details'>ID: [BLK 1]</div>
+</div>
+<div class='chunk occupied' style='width: 240px;'>
+<div>120 KB</div>
+<div class='details'>P4 | Addr: 150</div>
+<div class='details'>ID: [BLK 2]</div>
+</div>
+<div class='chunk occupied' style='width: 244px;'>
+<div>122 KB</div>
+<div class='details'>P6 | Addr: 270</div>
+<div class='details'>ID: [BLK 3]</div>
+</div>
+<div class='chunk occupied' style='width: 156px;'>
+<div>78 KB</div>
+<div class='details'>P10 | Addr: 392</div>
+<div class='details'>ID: [BLK 10]</div>
+</div>
+<div class='chunk occupied' style='width: 60px;'>
+<div>30 KB</div>
+<div class='details'>P3 | Addr: 470</div>
+<div class='details'>ID: [BLK 4]</div>
+</div>
+<div class='chunk free' style='width: 160px;'>
+<div>80 KB</div>
+<div class='details'>FREE | Addr: 500</div>
+<div class='details'>ID: [BLK 5]</div>
+</div>
+<div class='chunk occupied' style='width: 300px;'>
+<div>150 KB</div>
+<div class='details'>P2 | Addr: 580</div>
+<div class='details'>ID: [BLK 6]</div>
+</div>
+<div class='chunk occupied' style='width: 88px;'>
+<div>44 KB</div>
+<div class='details'>P5 | Addr: 730</div>
+<div class='details'>ID: [BLK 7]</div>
+</div>
+<div class='chunk occupied' style='width: 286px;'>
+<div>143 KB</div>
+<div class='details'>P7 | Addr: 774</div>
+<div class='details'>ID: [BLK 8]</div>
+</div>
+<div class='chunk free' style='width: 114px;'>
+<div>57 KB</div>
+<div class='details'>FREE | Addr: 917</div>
+<div class='details'>ID: [BLK 11]</div>
+</div>
+<div class='chunk free' style='width: 100px;'>
+<div>50 KB</div>
+<div class='details'>FREE | Addr: 974</div>
+<div class='details'>ID: [BLK 9]</div>
+</div>
+</div></body></html>
